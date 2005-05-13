@@ -334,9 +334,12 @@ sub query_file
 	    open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n";
 	    @files = <F>;
 	    close F;
+	    chop(@files);
 	    # Check this list of files for the current query
 	    for my $f (@files) {
-		$f = (split ' ', $f)[1];
+		$f =~ s/^dir // or
+		$f =~ s/^obj (\S.*) \S+ \S+$/$1/ or
+		$f =~ s/^sym (\S.*?) -> \S.*/$1/ or next;
 		next unless $f eq $a;
 		$found = 1;
 		push @pkgs, $p;
@@ -381,7 +384,7 @@ sub verify
 		next;
 	    }
 	    if (-r _) {
-		($md5 = `md5sum $Cname`) =~ s/\s.*//s;
+		($md5 = `md5sum "$Cname"`) =~ s/\s.*//s;
 	    }
 	    else {
 		$md5 = 'UNKNOWN';
@@ -538,7 +541,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.5
+EPM version 0.8.6
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -670,8 +673,12 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.7  2005/05/13 20:47:23  agriffis
-# epm-0.8.5
+# Revision 1.8  2005/05/13 20:47:30  agriffis
+# epm-0.8.6
+#
+# Revision 1.18  2004/03/29 16:47:34  agriffis
+# Fix bug 45927: Handle filenames with spaces correctly
+# Update version to 0.8.6
 #
 # Revision 1.17  2004/03/08 23:23:39  agriffis
 # - Update to 0.8.5
