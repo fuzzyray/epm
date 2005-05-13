@@ -255,17 +255,15 @@ sub query_list
     @files = <F>;
     close F;
 
-    # Trim @files if config files requested
+    # Look up CONFIG_PROTECT if -c
     if ($opt{'c'}) {
 	# Read in CONFIG_PROTECT from /etc/make.{global,conf}
-	my @CONFIG_PROTECT = split ' ', 
-	`. /etc/make.globals; 
-	. /etc/make.conf; 
-	echo \$CONFIG_PROTECT`;
+	my (@CONFIG_PROTECT) = split ' ', 
+	    `. /etc/make.globals; . /etc/make.conf; echo \$CONFIG_PROTECT`;
 	die "CONFIG_PROTECT is empty" unless @CONFIG_PROTECT;
-	my $confprotre = join '|', @CONFIG_PROTECT;
-	@files = grep { (split ' ', $_, 2)[1] =~ /^($confprotre)/o 
-	} @files;
+	my ($confprotre) = join '|', @CONFIG_PROTECT;
+	@files = grep { 
+	    (split ' ', $_, 2)[1] =~ /^($confprotre)/o } @files;
     }
 
     # Trim @files if doc files requested
@@ -273,8 +271,7 @@ sub query_list
 	# We don't have a variable like CONFIG_PROTECT to work
 	# with, so just fake it...  :-)
 	@files = grep { 
-	    (split ' ', $_, 2)[1] =~ m/\/(?:doc|man|info)\//o 
-	} @files;
+	    (split ' ', $_, 2)[1] =~ m/\/(?:doc|man|info)\//o } @files;
     }
 
     # If this is a dump query, then print the entire array
@@ -282,7 +279,7 @@ sub query_list
 	print @files;
     } else {
     	print grep {
-	    s/^obj (.*?) \w+ \d+$/$1/ || s/^sym (.*?) \d+$/$1/ } @files;
+	    s/^obj (\S.*?) \w+ \d+$/$1/ || s/^sym (\S.*?) -> .*$/$1/ } @files;
     }
 }
 
@@ -324,8 +321,8 @@ sub query_file
 	    # Check this list of files for the current query
 	    for my $f (@files) {
 		$f =~ s/^dir // or
-		$f =~ s/^obj (\S.*) \S+ \S+$/$1/ or
-		$f =~ s/^sym (\S.*?) -> \S.*/$1/ or next;
+		$f =~ s/^obj (\S.*?) \w+ \d+$/$1/ or
+		$f =~ s/^sym (\S.*?) -> .*$/$1/ or next;
 		next unless $f eq $a;
 		$found = 1;
 		push @pkgs, $p;
@@ -527,7 +524,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.7
+EPM version 0.8.8
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -659,8 +656,11 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.9  2005/05/13 20:47:37  agriffis
-# epm-0.8.7
+# Revision 1.10  2005/05/13 20:47:44  agriffis
+# epm-0.8.8
+#
+# Revision 1.20  2004/04/28 13:22:41  agriffis
+# - Fix printing of symlinks in -ql to exclude link target
 #
 # Revision 1.19  2004/04/05 04:37:46  agriffis
 # - Add patch from Michael Sterret in bug 45927 to handle whitespace
