@@ -158,6 +158,33 @@ sub cmppkg {
 # 
 ##############################################
 
+# Utility function to sum the size of a package on the filesystem
+# in bytes
+sub pkg_bytes {
+    my ($p) = @_;
+    my ($total) = 0;
+    my (@files, $CONTENTS);
+    
+    if ($p =~ /\//) {
+	$CONTENTS = "$dbpath/$p/CONTENTS";
+    } else {
+	$CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+    }
+
+    open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
+    @files = map((split ' ')[1], grep /^obj/, <F>);
+    close F;
+
+    for my $f (@files) {
+	my ($size) = (stat($f))[7];
+	next unless $size;
+	vverb "Adding $f ($size bytes)";
+	$total += $size;
+    }
+
+    return $total;
+}
+
 # Utility function to do -qi
 sub query_info 
 {
@@ -197,6 +224,9 @@ EOT
     } else {
 	$vals{'NAME'} = $vals{'VERSION'} = $vals{'RELEASE'} = '';
     }
+    
+    # Calculate the SIZE for the files it uses on the filesystem
+    $vals{'SIZE'} = pkg_bytes($p);
 
     # Extract the packager and description from the ebuild itself
     {
@@ -210,7 +240,7 @@ EOT
 
     printf $fmt, $vals{'NAME'}, $vals{'VERSION'}, $vals{'RELEASE'},
 	$vals{'SLOT'}, $vals{'DATE'}, $vals{'CHOST'}, $dpkggrp{$p},
-	$vals{'LICENSE'}, 'TBD', $vals{'PACKAGER'}, $vals{'URL'},
+	$vals{'LICENSE'}, $vals{'SIZE'}, $vals{'PACKAGER'}, $vals{'URL'},
 	$vals{'DESCRIPTION'};
 }
 
@@ -235,7 +265,7 @@ sub query_list
 	die "CONFIG_PROTECT is empty" unless @CONFIG_PROTECT;
 	my $confprotre = join '|', @CONFIG_PROTECT;
 	@files = grep { 
-	    (split ' ', $_)[1] =~ /^($confprotre)/o 
+	    (split ' ')[1] =~ /^($confprotre)/o 
 	} @files;
     }
 
@@ -243,9 +273,8 @@ sub query_list
     if ($opt{'d'}) {
 	# We don't have a variable like CONFIG_PROTECT to work
 	# with, so just fake it...  :-)
-	my $docre = '/usr/share/doc|/usr/share/man|/usr/X11R6/man';
 	@files = grep { 
-	    (split ' ', $_)[1] =~ m/^($docre)/o 
+	    (split ' ', $_)[1] =~ m/\/(?:doc|man|info)\//o 
 	} @files;
     }
 
@@ -461,11 +490,13 @@ sub query
 
 	# If not another type of listing, then simply list the packages
 	if (!$opt{'l'} && !$opt{'i'}) {
+	    # If doing -qS, then include the size in kb, like ls -s
+	    printf "%6d ", int(pkg_bytes($p)/1000) if $opt{'S'};
 	    # If doing -qG, then include the group name
-	    print $opt{'G'} ? "$dpkggrp{$p}/$p\n" : "$p\n";
+	    print "$dpkggrp{$p}/" if $opt{'G'};
+	    print "$p\n";
 	}
     }
-
 }
 
 ##############################################
@@ -507,7 +538,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.4
+EPM version 0.8.5
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -535,6 +566,7 @@ Usage:
        *-i, --info         - display package information
         -l                 - display package file list
         -G, --showgroup    - display group name in output (not in rpm)
+        -S, --size         - display package size in output (not in rpm)
         -d                 - list only documentation files (implies -l)
         -c                 - list only configuration files (implies -l)
         --dump             - show all verifiable information for each file
@@ -599,6 +631,7 @@ my $result = GetOptions(
 	'R|requires',	# list package dependencies
 	'scripts',	# print the various [un]install scripts
         'G|showgroup',  # include group name in output
+	'S|size',	# display package size
 
     'e|erase', 		# erase mode
         'allmatches',   # remove all packages which match <package>
@@ -637,8 +670,16 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.6  2005/05/13 20:47:17  agriffis
-# epm-0.8.4
+# Revision 1.7  2005/05/13 20:47:23  agriffis
+# epm-0.8.5
+#
+# Revision 1.17  2004/03/08 23:23:39  agriffis
+# - Update to 0.8.5
+#
+# Revision 1.16  2004/03/08 23:21:46  agriffis
+# - Added size option to -qi and -qS
+# - Thanks to Bram Dumolin (http://lanka-expats.net/) for the idea and
+#   an initial effort at the code
 #
 # Revision 1.15  2003/05/27 01:36:01  agriffis
 # - Update to 0.8.4
