@@ -147,6 +147,8 @@ sub cmppkg {
         die "Illegal suffix in $p1" unless defined $sufs{$p1[2]};
         die "Illegal suffix in $p2" unless defined $sufs{$p2[2]};
     }
+
+    # This isn't finished.  What was I doing here?
 }
 
 ##############################################
@@ -154,6 +156,202 @@ sub cmppkg {
 # QUERY MODE
 # 
 ##############################################
+
+# Utility function to do -qi
+sub query_info 
+{
+    my ($p) = @_;
+    my (%vals);
+    my ($fmt) = <<EOT;
+Name        : \%s
+Version     : \%s
+Release     : \%-28s        Slot: \%s
+Install date: \%-28s  Build Host: \%s
+Group       : \%-28s     License: \%s
+Size        : \%s
+Packager    : \%s
+Description : 
+\%s
+EOT
+
+    # Extract some information from files stored in the Portage pkgdb
+    for my $f (qw(CATEGORY CFLAGS CHOST CXXFLAGS LICENSE SLOT)) {
+	if (open(F, "$dbpath/$dpkggrp{$p}/$p/$f")) {
+	    $vals{$f} = <F>;
+	    chomp($vals{$f});
+	} else {
+	    $vals{$f} = '';
+	}
+    }
+    
+    # When was this last built/installed?
+    $vals{'DATE'} = localtime((stat "$dbpath/$dpkggrp{$p}/$p/USE")[9]);
+
+    # Extract NAME, VERSION, RELEASE from $p
+    if ($p =~ /$pkgregex/o) {
+	$vals{'NAME'} = $1;
+	$vals{'VERSION'} = "$2$3";
+	($vals{'RELEASE'} = $4) =~ s/^-r//;
+    } else {
+	$vals{'NAME'} = $vals{'VERSION'} = $vals{'RELEASE'} = '';
+    }
+
+    # Extract the packager and description from the ebuild itself
+    {
+	local $/ = undef; 
+	open(F, "$dbpath/$dpkggrp{$p}/$p/$p.ebuild");
+	$_ = <F>;
+	$vals{'PACKAGER'} = /Header:.*:\d\d (\w+)/ ? $1 : ''; 
+	$vals{'DESCRIPTION'} = /DESCRIPTION=["'](.*)['"]/ ? $1 : '';
+    }
+
+    printf $fmt, $vals{'NAME'}, $vals{'VERSION'}, $vals{'RELEASE'},
+	$vals{'SLOT'}, $vals{'DATE'}, $vals{'CHOST'}, $dpkggrp{$p},
+	$vals{'LICENSE'}, 'TBD', $vals{'PACKAGER'}, $vals{'DESCRIPTION'};
+}
+
+# Utility function to do -ql
+sub query_list 
+{
+    my ($p) = @_;
+    my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+    my (@files);
+
+    open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
+    @files = <F>;
+    close F;
+
+    # Trim @files if config files requested
+    if ($opt{'c'}) {
+	# Read in CONFIG_PROTECT from /etc/make.{global,conf}
+	my @CONFIG_PROTECT = split ' ', 
+	`. /etc/make.globals; 
+	. /etc/make.conf; 
+	echo \$CONFIG_PROTECT`;
+	die "CONFIG_PROTECT is empty" unless @CONFIG_PROTECT;
+	my $confprotre = join '|', @CONFIG_PROTECT;
+	@files = grep { 
+	    (split ' ', $_)[1] =~ /^($confprotre)/o 
+	} @files;
+    }
+
+    # Trim @files if doc files requested
+    if ($opt{'d'}) {
+	# We don't have a variable like CONFIG_PROTECT to work
+	# with, so just fake it...  :-)
+	my $docre = '/usr/share/doc|/usr/share/man|/usr/X11R6/man';
+	@files = grep { 
+	    (split ' ', $_)[1] =~ m/^($docre)/o 
+	} @files;
+    }
+
+    # If this is a dump query, then print the entire array
+    if ($opt{'dump'}) {
+	print @files;
+    } 
+
+    # Otherwise do some work so that intermediate directories
+    # aren't listed
+    else {
+	for (my $i=0; $i < @files; $i++) {
+	    my ($f1) = $files[$i];
+	    $f1 = (split ' ', $f1)[1];
+	    if ($i < @files-1) {
+		my $f2 = $files[$i+1];
+		$f2 = (split ' ', $f2)[1];
+		vverb "Comparing $f1 to $f2";
+		next if $f2 =~ m#^\Q$f1\E/#;
+	    }
+	    print $f1, "\n";
+	}
+    }
+}
+
+# Utility function to do -qf
+sub query_file 
+{
+    my (@pkgs) = @_;
+    # Search through CONTENTS for elements in ARGV.  Building an
+    # index would be bad because it would be HUGE.
+    for my $a (@ARGV) {
+	my $found = 0;
+	# Trim trailing slashes from directories
+	$a =~ s#/*$##;
+	# TODO: If it's a relative pathname, then figure out
+	#       the full pathname
+	if ($a !~ m#^/#) { }
+	# TODO: stat the file here so that we can determine later
+	#       what package the file currently belongs to
+	for my $p (@dpkgs) {
+	    my ($CONTENTS, @files);
+	    $CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+	    unless (-s $CONTENTS) {
+		verb "skipping empty/nonexistent $CONTENTS";
+		next;
+	    }
+	    open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n";
+	    @files = <F>;
+	    close F;
+	    # Check this list of files for the current query
+	    for my $f (@files) {
+		$f = (split ' ', $f)[1];
+		next unless $f eq $a;
+		$found = 1;
+		push @pkgs, $p;
+	    }
+	}
+	unless ($found) {
+	    print "file $a is not owned by any package\n";
+	    $exitcode = 1;
+	}
+    }
+    return @pkgs;
+}
+
+# Utility function to do -V
+sub verify 
+{
+    my ($p) = @_;
+    my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+    verb "verifying $p";
+
+    # CONTENTS consists of lines such as
+    # dir /usr/bin
+    # obj /usr/bin/qpkg e4a2da62aabb399c537ea9fa92b5af29 1034786384
+    open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
+    @files = <F>;
+    close F;
+
+    # Verify directories and files
+    # XXX should label config files with 'c'
+    for my $f (@files) {
+	if ($f =~ /^dir (\S+)/) {
+	    print "missing    $1\n" unless -d $1;
+	    next;
+	}
+	if ($f =~ /^obj (\S.*) (\S+) (\d+)\s*$/) {
+	    my ($Cname, $Cmd5, $Cmtime) = ($1, $2, $3);
+	    my ($md5, $mtime);
+	    vverb "$Cname: $Cmd5 $Cmtime";
+	    if (! -f $Cname) {
+		print "missing    $Cname\n";
+		next;
+	    }
+	    $md5 = `md5sum $Cname`; $md5 =~ s/\s.*//s;
+	    vverb "Md5 is $md5 for $Cname";
+	    $mtime = (stat _)[9];
+	    vverb "Mtime is $mtime for $Cname";
+	    # size, device, user, group, and mode are not checked...  :-(
+	    next if ($md5 eq $Cmd5 && $mtime eq $Cmtime);
+	    printf "..%s....%s   %s\n",
+		($md5 ne $Cmd5) ? 5 : '.',
+		($mtime ne $Cmtime) ? T : '.', $Cname;
+	    if ($md5 ne $Cmd5) { $exitcode = 1; }
+	}
+	# XXX presently ignoring symlinks and devices
+    }
+}
+
 sub query 
 {
     verb "query mode";
@@ -163,6 +361,11 @@ sub query
     load_database();
     my (@pkgs);  # list of packages being queried
 
+    # Package-based query (how does this work with emerge?)
+    if ($opt{'p'}) { 
+        die "epm: Sorry, package-based query not yet supported\n";
+    }
+
     # Implied -l similar to rpm
     $opt{'dump'} and $opt{'l'} = 1;
     $opt{'d'}    and $opt{'l'} = 1;
@@ -170,47 +373,8 @@ sub query
 
     # File-based query
     if ($opt{'f'}) { 
-	# Search through CONTENTS for elements in ARGV.  Building an
-	# index would be bad because it would be HUGE.
-	for my $a (@ARGV) {
-	    my $found = 0;
-	    # Trim trailing slashes from directories
-	    $a =~ s#/*$##;
-	    # TODO: If it's a relative pathname, then figure out
-	    #       the full pathname
-	    if ($a !~ m#^/#) { }
-	    # TODO: stat the file here so that we can determine later
-	    #       what package the file currently belongs to
-	    for my $p (@dpkgs) {
-		my ($CONTENTS, @files);
-		$CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
-		unless (-s $CONTENTS) {
-		    verb "skipping empty/nonexistent $CONTENTS";
-		    next;
-		}
-		open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n";
-		@files = <F>;
-		close F;
-		# Check this list of files for the current query
-		for my $f (@files) {
-		    $f = (split ' ', $f)[1];
-		    next unless $f eq $a;
-		    $found = 1;
-		    # If not doing -qlf, then print the package name
-                    unless ($opt{'l'}) {
-                        # If doing -qGf, then include the group name
-                        print $opt{'G'} ? "$dpkggrp{$p}/$p\n" : "$p\n";
-                    }
-		    push @pkgs, $p;
-		}
-	    }
-	    unless ($found) {
-		print "file $a is not owned by any package\n";
-		$exitcode = 1;
-	    }
-	}
-	# Clear out ARGV so queries below don't get confused
-	@ARGV = ();
+	@pkgs = query_file(@pkgs);
+	@ARGV = (); # Clear out ARGV so queries below don't get confused
     }
 
     # Group-based query
@@ -228,13 +392,7 @@ sub query
             }
             push @pkgs, @l;
         }
-	# Clear out ARGV so queries below don't get confused
-	@ARGV = ();
-    }
-
-    # Package-based query (how does this work with emerge?)
-    if ($opt{'p'}) { 
-        die "epm: Sorry, package-based query not yet supported\n";
+	@ARGV = (); # Clear out ARGV so queries below don't get confused
     }
 
     # Query on all packages
@@ -264,62 +422,24 @@ sub query
 	}
     }
 
-    # Do a file listing of the requested packages
-    if ($opt{'l'}) {
-	for my $p (@pkgs) {
-	    my $CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
-	    open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
-	    my @files = <F>;
-	    close F;
-	    # Trim @files if config files requested
-	    if ($opt{'c'}) {
-		# Read in CONFIG_PROTECT from /etc/make.{global,conf}
-		my @CONFIG_PROTECT = split ' ', 
-		    `. /etc/make.globals; 
-		     . /etc/make.conf; 
-		     echo \$CONFIG_PROTECT`;
-		die "CONFIG_PROTECT is empty" unless @CONFIG_PROTECT;
-		my $confprotre = join '|', @CONFIG_PROTECT;
-		@files = grep { 
-			(split ' ', $_)[1] =~ /^($confprotre)/o 
-		    } @files;
-	    }
-	    # Trim @files if doc files requested
-	    if ($opt{'d'}) {
-		# We don't have a variable like CONFIG_PROTECT to work
-		# with, so just fake it...  :-)
-		my $docre = '/usr/share/doc|/usr/share/man|/usr/X11R6/man';
-		@files = grep { 
-			(split ' ', $_)[1] =~ m/^($docre)/o 
-		    } @files;
-	    }
-	    # If this is a dump query, then print the entire array
-	    if ($opt{'dump'}) {
-		print @files;
-	    } 
-	    # Otherwise do some work so that intermediate directories
-	    # aren't listed
-	    else {
-		for (my $i=0; $i < @files; $i++) {
-		    my ($f1) = $files[$i];
-		    $f1 = (split ' ', $f1)[1];
-		    if ($i < @files-1) {
-			my $f2 = $files[$i+1];
-			$f2 = (split ' ', $f2)[1];
-			vverb "Comparing $f1 to $f2";
-			next if $f2 =~ m#^\Q$f1\E/#;
-		    }
-		    print $f1, "\n";
-		}
-	    }
+    for my $p (@pkgs) {
+	# Verify package
+	if ($opt{'V'}) { verify($p); next; }
+
+	# Information query
+	query_info($p) if $opt{'i'};
+
+	# File listing...
+	# We allow this to chain after query_info because rpm allows it.
+	query_list($p) if $opt{'l'};
+
+	# If not another type of listing, then simply list the packages
+	if (!$opt{'l'} && !$opt{'i'}) {
+	    # If doing -qG, then include the group name
+	    print $opt{'G'} ? "$dpkggrp{$p}/$p\n" : "$p\n";
 	}
     }
 
-    # If not another type of listing, then simply list the packages
-    if (!$opt{'l'} && !$opt{'f'}) {
-        # If doing -qG, then include the group name
-	print map(($opt{'G'} ? "$dpkggrp{$_}/$_\n" : "$_\n"), @pkgs);
-    }
 }
 
 ##############################################
@@ -329,6 +449,7 @@ sub query
 ##############################################
 sub erase 
 {
+    my (@cmd);
     verb "erase mode";
     verb "(testing)" if $opt{'test'};
 
@@ -342,117 +463,14 @@ sub erase
         return;
     }
 
-    # Load the database for group/name verification
-    load_database();
-    my (@pkgs);  # list of packages being queried
-
-    # Erase everything listed on the command-line.  Give an error
-    # message on bogus names, but continue anyway, a la rpm.
-    for my $a (@ARGV) {
-        my ($g, $n);                   # start out undef'd
-        $g = $1 if $a =~ s,^(.+?)/,,;  # snip off the group
-
-        # Handle fully-qualified name-version-rev
-        if ($a =~ /$pkgregex/o) {
-            verb "$a matches pkgregex";
-            vverb "name=$1, version=$2, suffix=$3, revision=$4";
-            $n = $1;
-
-            # Check for an apparently groupless package (which would
-            # indicate that the pkgregex matched on something that
-            # wasn't really a fully-qualified name).
-            if (!defined $dpkggrp{$a}) {
-                verb "no dpkggrp for $a, falling back to match-by-name";
-            }
-            # Check for a conflicting group
-            elsif (defined $g && $g ne $dpkggrp{$a}) {
-                # Group doesn't match
-                print STDERR "group mismatch: $g != $dpkggrp{$a}\n";
-                $exitcode = 1;
-                next;
-            }
-            # Looks good, we have a fully-qualified match!
-            else {
-                push @pkgs, $a;
-                next;
-            }
-        }
-
-        # Handle name specification only
-        if (defined $dnampkg{$a}) {
-            verb "$a found in dnampkg";
-            vverb @{$dnampkg{$a}};
-
-            # Use the first match for group verification
-            if (defined $g && $g ne $dpkggrp{$dnampkg{$a}->[0]}) {
-                printf STDERR "error: group mismatch: %s != %s\n",
-                    $g, $dpkggrp{$dnampkg{$a}->[0]};
-                $exitcode = 1;
-                next;
-            }
-            # Check for multiple matches
-            if (!$opt{'allmatches'} && @{$dnampkg{$a}} > 1) {
-                print STDERR "error: $a specifies multiple packages\n";
-                $exitcode = 1;
-                next;
-            }
-            # Looks good, we have a match-by-name
-            push @pkgs, @{$dnampkg{$a}};
-            next;
-        }
-
-        # Handle partly-qualified name-version.
-        # In this case, we have $n from above match on pkgregex
-        if (defined $n && defined $dnampkg{$n}) {
-            verb "$n found in dnampkg";
-            vverb @{$dnampkg{$n}};
-
-            # Use the first match for group verification
-            if (defined $g && $g ne $dpkggrp{$dnampkg{$n}->[0]}) {
-                printf STDERR "error: group mismatch: %s != %s\n",
-                    $g, $dpkggrp{$dnampkg{$n}->[0]};
-                $exitcode = 1;
-                next;
-            }
-            # Check for multiple matches
-            if (!$opt{'allmatches'} && @{$dnampkg{$n}} > 1) {
-                print STDERR "error: $n specifies multiple packages\n";
-                $exitcode = 1;
-                next;
-            }
-            # Looks good, we have a match-by-name
-            push @pkgs, @{$dnampkg{$n}};
-            next;
-        }
-
-        # No package by that name...
-	print STDERR "error: package $a is not installed\n";
-    }
-
-    # Erase the requested packages
-    for my $p (@pkgs) {
-        my $ebuild = "$dbpath/$dpkggrp{$p}/$p/$p.ebuild";
-        die "epm: Fatal error, couldn't find $ebuild; aborting\n" 
-            unless -f $ebuild;
-        my @cmd = ('ebuild', $ebuild, 'unmerge');
-        print STDERR join(" ", @cmd), "\n";
-        unless ($opt{'test'}) {
-            system @cmd;
-            die "epm: Fatal error running ebuild; aborting\n" if $?;
-        }
-    }
-}
-
-##############################################
-#
-# UPDATE MODE (NOT in rpm)
-# 
-##############################################
-sub update {
-    verb "update mode";
-
-    # Load the database which is needed for update mode
-    load_database();
+    # There's no point implementing erase here.  Might as well just
+    # use existing portage features.  This means that we do
+    # --allmatches by default.
+    @cmd = qw(emerge -C);
+    push @cmd, '--pretend' if $opt{'test'};
+    push @cmd, @ARGV;
+    system(@cmd);
+    die "epm: Fatal error running emerge\n" if $?;
 }
 
 ##############################################
@@ -463,9 +481,9 @@ sub update {
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.1
-Copyright (C) 2001 - Aron Griffis
-This program may be freely redistributed under the terms of the GNU GPL
+EPM version 0.8
+Copyright (C) 2001, 2002 - Aron Griffis
+This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
 
 Usage:
@@ -502,8 +520,7 @@ Usage:
     --erase <package>
     -e <package>           - erase (uninstall) package
       --allmatches         - remove all packages which match <package>
-                             (normally an error is generated if <package>
-                             specified multiple packages)
+                             (unlike rpm, this is the default)
       --dbpath <dir>       - use <dir> as the directory for the database
      *--justdb             - update the database, but do not modify the
                              filesystem
@@ -516,16 +533,13 @@ Usage:
       --root <dir>         - use <dir> as the top level directory
       --test               - don't uninstall, but tell what would happen
 
-   *-V, -y, --verify       - verify a package installation using the same
+    -V, -y, --verify       - verify a package installation using the same
                              package specification options as -q
-     *--dbpath <dir>       - use <dir> as the directory for the database
+      --dbpath <dir>       - use <dir> as the directory for the database
      *--root <dir>         - use <dir> as the top level directory
      *--nodeps             - do not verify package dependencies
      *--nomd5              - do not verify file md5 checksums
      *--nofiles            - do not verify file attributes
-
-   *--update               - update all packages to latest (not in rpm)
-     *--test               - don't update, but tell what would happen
 EOT
 
 # Allow bundling of options since rpm does
@@ -564,8 +578,6 @@ my $result = GetOptions(
         'allmatches',   # remove all packages which match <package>
         'test',         # don't uninstall, but tell what would happen
 
-    'update',           # update mode
-
     'V|y|verify',       # verify a package installation using the same
                         # package specification options as -q
 	'nodeps',	# do not verify package dependencies
@@ -579,27 +591,43 @@ if ($opt{'help'}) { print $syntax; exit 0 }
 # Determine which mode we're running in; make sure it's valid.
 #  (q)uery
 #  (V)erify
-#  (i)nstall
 #  (U)pgrade
 #  (e)rase
 #  (b)uild
-#  update (new mode for epm -- not in rpm)
 #  other
 if ((defined $opt{'q'} || 0) +
     (defined $opt{'V'} || 0) +
-    (defined $opt{'i'} || 0) +
     (defined $opt{'U'} || 0) + 
     (defined $opt{'e'} || 0) + 
-    (defined $opt{'b'} || 0) +
-    (defined $opt{'update'} || 0) != 1) {
+    (defined $opt{'b'} || 0) != 1) {
 	die 'One mode required, and only one mode allowed\n';
 }
 
 # Query mode
-if ($opt{'q'}) { query(); exit $exitcode }
-if ($opt{'V'}) { query(); exit $exitcode }
+if ($opt{'q'} || $opt{'V'}) { query(); exit $exitcode }
 if ($opt{'e'}) { erase(); exit $exitcode }
-if ($opt{'update'}) { update(); exit $exitcode }
 
 # Other modes not implemented yet
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
+
+# $Log$
+# Revision 1.2  2005/05/13 20:46:49  agriffis
+# epm-0.8
+#
+# Revision 1.10  2002/10/22 13:55:00  agriffis
+# Fix version reporting in help message
+# Fix unmerging to use -C instead of non-existent --unmerge
+#
+# Revision 1.9  2002/10/22 13:48:47  agriffis
+# Fixed erase -e to do something when not --test
+#
+# Revision 1.8  2002/10/22 13:44:08  agriffis
+# Fix bug in -qa which listed too many packages
+#
+# Revision 1.7  2002/10/22 13:31:47  agriffis
+# Split out query types into separate functions
+# Add sub cmppkg which was for --update but might be abandoned
+# Add information query -qi
+# Add first-pass verification -V
+# Change erase -e to use emerge (which maintains world)
+#
