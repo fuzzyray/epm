@@ -264,8 +264,7 @@ sub query_list
 	echo \$CONFIG_PROTECT`;
 	die "CONFIG_PROTECT is empty" unless @CONFIG_PROTECT;
 	my $confprotre = join '|', @CONFIG_PROTECT;
-	@files = grep { 
-	    (split ' ')[1] =~ /^($confprotre)/o 
+	@files = grep { (split ' ', $_, 2)[1] =~ /^($confprotre)/o 
 	} @files;
     }
 
@@ -274,29 +273,16 @@ sub query_list
 	# We don't have a variable like CONFIG_PROTECT to work
 	# with, so just fake it...  :-)
 	@files = grep { 
-	    (split ' ', $_)[1] =~ m/\/(?:doc|man|info)\//o 
+	    (split ' ', $_, 2)[1] =~ m/\/(?:doc|man|info)\//o 
 	} @files;
     }
 
     # If this is a dump query, then print the entire array
     if ($opt{'dump'}) {
 	print @files;
-    } 
-
-    # Otherwise do some work so that intermediate directories
-    # aren't listed
-    else {
-	for (my $i=0; $i < @files; $i++) {
-	    my ($f1) = $files[$i];
-	    $f1 = (split ' ', $f1)[1];
-	    if ($i < @files-1) {
-		my $f2 = $files[$i+1];
-		$f2 = (split ' ', $f2)[1];
-		vverb "Comparing $f1 to $f2";
-		next if $f2 =~ m#^\Q$f1\E/#;
-	    }
-	    print $f1, "\n";
-	}
+    } else {
+    	print grep {
+	    s/^obj (.*?) \w+ \d+$/$1/ || s/^sym (.*?) \d+$/$1/ } @files;
     }
 }
 
@@ -541,7 +527,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.6
+EPM version 0.8.7
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -673,8 +659,12 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.8  2005/05/13 20:47:30  agriffis
-# epm-0.8.6
+# Revision 1.9  2005/05/13 20:47:37  agriffis
+# epm-0.8.7
+#
+# Revision 1.19  2004/04/05 04:37:46  agriffis
+# - Add patch from Michael Sterret in bug 45927 to handle whitespace
+#   in filenames
 #
 # Revision 1.18  2004/03/29 16:47:34  agriffis
 # Fix bug 45927: Handle filenames with spaces correctly
