@@ -2,6 +2,7 @@
 # $Id$
 
 use Getopt::Long;
+use Cwd qw(abs_path);
 #use epm;
 
 # Global vars
@@ -277,9 +278,17 @@ sub query_file
 	my $found = 0;
 	# Trim trailing slashes from directories
 	$a =~ s#/*$##;
-	# TODO: If it's a relative pathname, then figure out
-	#       the full pathname
-	if ($a !~ m#^/#) { }
+	# If it's a relative pathname, then figure out the full pathname
+	if ($a !~ m#^/# || $a =~ m#/\.\./#) { 
+	    # Make the pathname absolute
+	    if ($a =~ s#/([^/]+)$##) {
+		my $name = $1;
+		$a = abs_path($a) . '/' . $name;
+	    }
+	    else {
+		$a = abs_path('.') . '/' . $a;
+	    }
+	}
 	# TODO: stat the file here so that we can determine later
 	#       what package the file currently belongs to
 	for my $p (@dpkgs) {
@@ -337,14 +346,19 @@ sub verify
 		print "missing    $Cname\n";
 		next;
 	    }
-	    $md5 = `md5sum $Cname`; $md5 =~ s/\s.*//s;
+	    if (-r _) {
+		($md5 = `md5sum $Cname`) =~ s/\s.*//s;
+	    }
+	    else {
+		$md5 = 'UNKNOWN';
+	    }
 	    vverb "Md5 is $md5 for $Cname";
 	    $mtime = (stat _)[9];
 	    vverb "Mtime is $mtime for $Cname";
 	    # size, device, user, group, and mode are not checked...  :-(
 	    next if ($md5 eq $Cmd5 && $mtime eq $Cmtime);
 	    printf "..%s....%s   %s\n",
-		($md5 ne $Cmd5) ? 5 : '.',
+		($md5 ne $Cmd5) ? ($md5 eq 'UNKNOWN') ? '?' : 5 : '.',
 		($mtime ne $Cmtime) ? T : '.', $Cname;
 	    if ($md5 ne $Cmd5) { $exitcode = 1; }
 	}
@@ -488,7 +502,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.1
+EPM version 0.8.2
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -607,7 +621,7 @@ if ((defined $opt{'q'} || 0) +
     (defined $opt{'U'} || 0) + 
     (defined $opt{'e'} || 0) + 
     (defined $opt{'b'} || 0) != 1) {
-	die 'One mode required, and only one mode allowed\n';
+	die "One mode required, and only one mode allowed\n";
 }
 
 # Query mode
@@ -618,23 +632,139 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.3  2005/05/13 20:46:56  agriffis
-# epm-0.8.1
+# Revision 1.4  2005/05/13 20:47:03  agriffis
+# epm-0.8.2
+#
+# Revision 1.12  2003/05/01 02:42:39  agriffis
+# - Add man-page in pod format inside epm
+#
+# Revision 1.11  2003/05/01 01:53:09  agriffis
+# - Update version to 0.8.2; forgot to checkin 0.8.1
+# - Fix bug 8832: Add code to determine full path for epm -qf.
+#   Reported by Bill Gjestvang, patch provided by Wayne Davison.
+# - Fix bug 12798: Fix -V output for unreadable files
+#   Reported and patched by Wayne Davison.
+# - Fix bug 19806: Need double-quotes to interpret \n on die message
+#   Reported and patched by Scott Hunt
+# - Fix bug 19681: Check for requested version on epm -q.
+#   Reported by Neil McCalden, patch provided by Wayne Davison.
 #
 # Revision 1.10  2002/10/22 13:55:00  agriffis
-# Fix version reporting in help message
-# Fix unmerging to use -C instead of non-existent --unmerge
+# - Fix version reporting in help message
+# - Fix unmerging to use -C instead of non-existent --unmerge
 #
 # Revision 1.9  2002/10/22 13:48:47  agriffis
-# Fixed erase -e to do something when not --test
+# - Fixed erase -e to do something when not --test
 #
 # Revision 1.8  2002/10/22 13:44:08  agriffis
-# Fix bug in -qa which listed too many packages
+# - Fix bug in -qa which listed too many packages
 #
 # Revision 1.7  2002/10/22 13:31:47  agriffis
-# Split out query types into separate functions
-# Add sub cmppkg which was for --update but might be abandoned
-# Add information query -qi
-# Add first-pass verification -V
-# Change erase -e to use emerge (which maintains world)
+# - Split out query types into separate functions
+# - Add sub cmppkg which was for --update but might be abandoned
+# - Add information query -qi
+# - Add first-pass verification -V
+# - Change erase -e to use emerge (which maintains world)
 #
+
+=head1 NAME
+
+epm - rpm workalike for Gentoo
+
+=head1 SYNOPSIS
+
+epm { -eqVy | --erase | --help | --query | --verify } options...
+
+=head1 DESCRIPTION
+
+This tool provides a Gentoo query tool for users familiar with Red
+Hat's "rpm" package manager.  In particular, it can query, verify, and
+erase packages from the system.  I've tried to make it act as much
+like rpm as possible, but there are some differences made necessary by
+the differences in the distributions.
+
+Querying and verifying are the most powerful features of epm.  Erase
+mode is really just a gate to "emerge -C", but force of habit makes it
+easier for me to type "epm -e".
+
+=head1 MODES
+
+=over
+
+=item B<-q --query>
+
+Query mode, for querying either the list of installed packages or the
+files owned by a package.
+
+=item B<-V -y --verify>
+
+Verify mode, for determining the integrity of an installed package
+using timestamps and md5 sums.  Size, device, user, group, and mode
+are not presently checked.
+
+=item B<-e --erase>
+
+Erase mode, for removing packages from the system.  Specify a package
+by version to remove a specific package.  Specify a package by name to
+remove all versions (i.e. --allmatches is the default for epm, this is
+a difference from rpm).
+
+=item B<--help>
+
+This isn't really a mode, but it's the only thing you can do without
+otherwise specifying a mode.  Run "epm --help" to see the
+comprehensive list of options available for each mode.
+
+=head1 EXAMPLES
+
+To find out if vim is installed:
+
+  $ epm -q vim
+  vim-6.2_pre2
+
+To include the group in the output:
+
+  $ epm -qG vim
+  app-editors/vim-6.2_pre2
+
+To see what binaries vim installs:
+
+  $ epm -ql vim | grep bin
+  /usr/bin/ex
+  /usr/bin/vim
+  /usr/bin/rvim
+  /usr/bin/view
+  /usr/bin/rview
+  /usr/bin/vimdiff
+
+To find what package owns /usr/bin/vim
+
+  $ epm -qf /usr/bin/vim
+  vim-6.2_pre2
+
+To verify your installation of vim:
+
+  $ epm -V vim
+
+No output indicates the installation is fine.  If you get some other
+output when you verify a package installation, try the following link
+for an explanation.  http://www.rpm.org/max-rpm/s1-rpm-verify-output.html
+
+To show all vim related packages on the system:
+
+  $ epm -qa | grep vim
+  vim-core-6.2_pre2
+  vim-6.2_pre2
+  gvim-6.2_pre2
+
+=back
+
+=head1 NOTES
+
+This tool was written by Aron Griffis <agriffis@gentoo.org>.  It will
+probably blow up your computer, but it works well enough for me.  If
+you report bugs at http://bugs.gentoo.org/, assigned to me, I might
+fix them eventually.  Your chances skyrocket if you include a good
+patch, like Wayne Davison always does.
+
+=end
