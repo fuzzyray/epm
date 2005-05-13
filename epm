@@ -276,6 +276,7 @@ sub query_file
     # index would be bad because it would be HUGE.
     for my $a (@ARGV) {
 	my $found = 0;
+	my $origa = $a;
 	# Trim trailing slashes from directories
 	$a =~ s#/*$##;
 	# If it's a relative pathname, then figure out the full pathname
@@ -310,7 +311,8 @@ sub query_file
 	    }
 	}
 	unless ($found) {
-	    print "file $a is not owned by any package\n";
+	    if (-e $a) { print "file $origa is not owned by any package\n"; }
+	    else { print "file $origa: No such file or directory\n"; }
 	    $exitcode = 1;
 	}
     }
@@ -502,7 +504,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.2
+EPM version 0.8.3
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -632,8 +634,12 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.4  2005/05/13 20:47:03  agriffis
-# epm-0.8.2
+# Revision 1.5  2005/05/13 20:47:10  agriffis
+# epm-0.8.3
+#
+# Revision 1.13  2003/05/02 02:00:22  agriffis
+# - Update to 0.8.3
+# - Check if file exists to choose error message for -qf
 #
 # Revision 1.12  2003/05/01 02:42:39  agriffis
 # - Add man-page in pod format inside epm
