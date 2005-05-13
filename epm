@@ -171,6 +171,7 @@ Install date: \%-28s  Build Host: \%s
 Group       : \%-28s     License: \%s
 Size        : \%s
 Packager    : \%s
+URL         : \%s
 Description : 
 \%s
 EOT
@@ -204,11 +205,13 @@ EOT
 	$_ = <F>;
 	$vals{'PACKAGER'} = /Header:.*:\d\d (\w+)/ ? $1 : ''; 
 	$vals{'DESCRIPTION'} = /DESCRIPTION=["'](.*)['"]/ ? $1 : '';
+	$vals{'URL'} = /HOMEPAGE=["'](.*)['"]/ ? $1 : '(none)';
     }
 
     printf $fmt, $vals{'NAME'}, $vals{'VERSION'}, $vals{'RELEASE'},
 	$vals{'SLOT'}, $vals{'DATE'}, $vals{'CHOST'}, $dpkggrp{$p},
-	$vals{'LICENSE'}, 'TBD', $vals{'PACKAGER'}, $vals{'DESCRIPTION'};
+	$vals{'LICENSE'}, 'TBD', $vals{'PACKAGER'}, $vals{'URL'},
+	$vals{'DESCRIPTION'};
 }
 
 # Utility function to do -ql
@@ -504,7 +507,7 @@ sub erase
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.3
+EPM version 0.8.4
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -634,8 +637,15 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
-# Revision 1.5  2005/05/13 20:47:10  agriffis
-# epm-0.8.3
+# Revision 1.6  2005/05/13 20:47:17  agriffis
+# epm-0.8.4
+#
+# Revision 1.15  2003/05/27 01:36:01  agriffis
+# - Update to 0.8.4
+#
+# Revision 1.14  2003/05/27 01:33:41  agriffis
+# - Include patch from Michael Sterrett <msterret@gentoo.org> to display URL
+#   in -qi output
 #
 # Revision 1.13  2003/05/02 02:00:22  agriffis
 # - Update to 0.8.3
