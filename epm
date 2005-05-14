@@ -360,42 +360,75 @@ sub verify($)
     # dir /usr/bin
     # obj /usr/bin/qpkg e4a2da62aabb399c537ea9fa92b5af29 1034786384
     open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
-    @files = <F>;
-    close F;
 
     # Verify directories and files
     # XXX should label config files with 'c'
-    for my $f (@files) {
-	if ($f =~ /^dir (\S+)/) {
-	    print "missing    $1\n" unless -d $1;
-	    next;
-	}
-	if ($f =~ /^obj (\S.*) (\S+) (\d+)\s*$/) {
+    while ($f = <F>) {
+	chomp($f);
+	if ($f =~ /^obj (.+) (\S+) (\d+)$/o) {
 	    my ($Cname, $Cmd5, $Cmtime) = ($1, $2, $3);
 	    my ($md5, $mtime);
 	    vverb "$Cname: $Cmd5 $Cmtime";
 	    if (! -f $Cname) {
-		print "missing    $Cname\n";
+		print "missing    $Cname\n" unless ($opt{'nofiles'});
 		next;
 	    }
-	    if (-r _) {
-		($md5 = `md5sum "$Cname"`) =~ s/\s.*//s;
+	    unless ($opt{'nomd5'}) {
+		if (-r _) {
+		    ($md5 = `md5sum "$Cname"`) =~ s/\s.*//s;
+		} else {
+		    $md5 = 'UNKNOWN';
+		}
+		# only report this if it's calculated.
+		vverb "Md5 is $md5 for $Cname";
 	    }
-	    else {
-		$md5 = 'UNKNOWN';
-	    }
-	    vverb "Md5 is $md5 for $Cname";
 	    $mtime = (stat _)[9];
 	    vverb "Mtime is $mtime for $Cname";
-	    # size, device, user, group, and mode are not checked...  :-(
-	    next if ($md5 eq $Cmd5 && $mtime eq $Cmtime);
+	    # XXX size, device, user, group, and mode are not checked...  :-(
+	    next if (($opt{'nomd5'} or $md5 eq $Cmd5) and $mtime eq $Cmtime);
 	    printf "..%s....%s   %s\n",
-		($md5 ne $Cmd5) ? ($md5 eq 'UNKNOWN') ? '?' : 5 : '.',
-		($mtime ne $Cmtime) ? T : '.', $Cname;
+		($md5 ne $Cmd5) ? ($md5 eq 'UNKNOWN') ? '?' : '5' : '.',
+		($mtime ne $Cmtime) ? 'T' : '.', $Cname;
 	    if ($md5 ne $Cmd5) { $exitcode = 1; }
+	    next;
 	}
-	# XXX presently ignoring symlinks and devices
+	if ($f =~ /^dir (.+)/o) {
+	    print "missing    $1\n" unless (-d $1 or $opt{'nofiles'});
+	    next;
+	}
+	if ($f =~/^sym (.+) -> (.+) (\d+)$/o) {
+	    my ($Cname, $Clink, $Cmtime) = ($1, $2, $3);
+	    my ($link, $mtime);
+	    my ($modeok);
+
+	    if (! -e $Cname) {
+		print "missing    $Cname\n" unless ($opt{'nofiles'});
+		next;
+	    }
+	    vverb "$Cname -> $Clink $Cmtime";
+	    $mtime = (stat $Cname)[9];
+	    if (-l $Cname) {
+		$modeok = 1;
+		$link = readlink($Cname);
+	    } else {
+		$modeok = 0;
+		$link = '';
+	    }
+	    next if ($modeok
+		    and defined ($link)
+		    and $Clink eq $link
+		    and defined ($mtime)
+		    and $Cmtime eq $mtime);
+	    printf ".%s..%s..%s   %s\n",
+		$modeok ? '.' : 'M',
+		defined($link) ? ($Clink ne $link) ? 'L' : '.' : '?',
+		defined($mtime) ? ($Cmtime ne $mtime) ? 'T' : '.' : '?',
+		$Cname;
+	    next;
+	}
+	# XXX presently ignoring devices
     }
+    close F;
 }
 
 sub query()
@@ -668,6 +701,15 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.18  2005/05/14 23:48:48  mr_bones_
+# Added support for --nofiles in verify() - rpm man page claims it only
+# suppresses reports of missing files.  epm suppresses all "missing" reporting
+# if --nofiles is given.
+#
+# Added support for --nomd5 in verify(); fixed up bare word in output.
+#
+# Added initial support for symlinks in verify().
+#
 # Revision 1.17  2005/05/14 22:24:12  mr_bones_
 # no reason to read CONTENTS into memory in query_file().  Modified to read
 # line at a time.
