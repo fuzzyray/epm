@@ -26,11 +26,13 @@ my $exitcode = 0;
 # UTILITY FUNCTIONS
 #
 ##############################################
-sub verb {
+sub verb
+{
     print STDERR map "-- $_\n", @_ if $verbose;
 }
 
-sub vverb {
+sub vverb
+{
     print STDERR map "--   $_\n", @_ if $verbose > 1;
 }
 
@@ -48,7 +50,8 @@ sub vverb {
 
 my (@dgrps, @dpkgs, %dpkggrp, %dnampkg);
 
-sub load_database {
+sub load_database()
+{
     # Check if the database is already loaded
     return if @dgrps;
 
@@ -83,7 +86,8 @@ sub load_database {
     }
 }
 
-sub cmppkg {
+sub cmppkg($$)
+{
     my ($p1, $p2) = (shift, shift);
     # Remove the group from the beginning
     $p1 =~ s#.*/##;
@@ -160,7 +164,8 @@ sub cmppkg {
 
 # Utility function to sum the size of a package on the filesystem
 # in bytes
-sub pkg_bytes {
+sub pkg_bytes($)
+{
     my ($p) = @_;
     my ($total) = 0;
     my (@files, $CONTENTS);
@@ -186,7 +191,7 @@ sub pkg_bytes {
 }
 
 # Utility function to do -qi
-sub query_info
+sub query_info($)
 {
     my ($p) = @_;
     my (%vals);
@@ -245,7 +250,7 @@ EOT
 }
 
 # Utility function to do -ql
-sub query_list
+sub query_list($)
 {
     my ($p) = @_;
     my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
@@ -284,7 +289,7 @@ sub query_list
 }
 
 # Utility function to do -qf
-sub query_file
+sub query_file(@)
 {
     my (@pkgs) = @_;
     # Search through CONTENTS for elements in ARGV.  Building an
@@ -338,7 +343,7 @@ sub query_file
 }
 
 # Utility function to do -V
-sub verify
+sub verify($)
 {
     my ($p) = @_;
     my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
@@ -386,7 +391,7 @@ sub verify
     }
 }
 
-sub query
+sub query()
 {
     verb "query mode";
     verb "actually Verify mode" if $opt{'V'};
@@ -490,7 +495,7 @@ sub query
 # ERASE MODE
 #
 ##############################################
-sub erase
+sub erase()
 {
     my (@cmd);
     verb "erase mode";
@@ -656,6 +661,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.13  2005/05/14 21:38:10  mr_bones_
+# prototype functions
+#
 # Revision 1.12  2005/05/14 21:30:44  mr_bones_
 # Use correct variable in error message ($p -> $p1/$p2)
 #
