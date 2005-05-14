@@ -167,8 +167,8 @@ sub cmppkg($$)
 sub pkg_bytes($)
 {
     my ($p) = @_;
-    my ($total) = 0;
-    my (@files, $CONTENTS);
+    my $total = 0;
+    my $CONTENTS;
 
     if ($p =~ /\//) {
 	$CONTENTS = "$dbpath/$p/CONTENTS";
@@ -176,17 +176,17 @@ sub pkg_bytes($)
 	$CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
     }
 
-    open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
-    @files = map((split ' ')[1], grep /^obj/, <F>);
-    close F;
-
-    for my $f (@files) {
+    open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n"
+	or die "epm: Can't open $CONTENTS: $!\n";
+    for my $f (grep /^obj/, <F>) {
+	chomp($f);
+	$f =~ s/^obj (\S.*?) \w+ \d+$/$1/;
 	my ($size) = (stat($f))[7];
 	next unless $size;
-	vverb "Adding $f ($size bytes)";
+	verb "Adding $f ($size bytes)";
 	$total += $size;
     }
-
+    close F;
     return $total;
 }
 
@@ -661,6 +661,10 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.14  2005/05/14 21:47:51  mr_bones_
+# fix bug in pkg_bytes() where files with whitespace in their name would
+# cause incorrect behavior.
+#
 # Revision 1.13  2005/05/14 21:38:10  mr_bones_
 # prototype functions
 #
