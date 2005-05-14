@@ -3,7 +3,6 @@
 
 use Getopt::Long;
 use Cwd qw(abs_path);
-#use epm;
 
 # Global vars
 my $verbose = 0;
@@ -701,6 +700,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.19  2005/05/14 23:50:33  mr_bones_
+# remove "use epm".  guessing that was an idea that never materialized
+#
 # Revision 1.18  2005/05/14 23:48:48  mr_bones_
 # Added support for --nofiles in verify() - rpm man page claims it only
 # suppresses reports of missing files.  epm suppresses all "missing" reporting
