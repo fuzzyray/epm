@@ -514,7 +514,7 @@ sub erase()
     # There's no point implementing erase here.  Might as well just
     # use existing portage features.  This means that we do
     # --allmatches by default.
-    @cmd = qw(emerge -C);
+    @cmd = qw(emerge --unmerge);
     push @cmd, '--pretend' if $opt{'test'};
     push @cmd, @ARGV;
     system(@cmd);
@@ -661,6 +661,10 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.15  2005/05/14 21:55:25  mr_bones_
+# Pass long option (--unmerge) to emerge instead of short option (-C)
+# for better readability.
+#
 # Revision 1.14  2005/05/14 21:47:51  mr_bones_
 # fix bug in pkg_bytes() where files with whitespace in their name would
 # cause incorrect behavior.
