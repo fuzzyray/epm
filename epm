@@ -8,7 +8,7 @@ use Cwd qw(abs_path);
 # Global vars
 my $verbose = 0;
 my $dbpath = '/var/db/pkg';
-my $pkgregex = 
+my $pkgregex =
     '^(.+?)'.					# name
     '-(\d+(?:\.\d+)*\w*)'.			# version, eg 1.23.4a
     '((?:(?:_alpha|_beta|_pre|_rc)\d*)?)'.	# special suffix
@@ -24,7 +24,7 @@ my $exitcode = 0;
 ##############################################
 #
 # UTILITY FUNCTIONS
-# 
+#
 ##############################################
 sub verb {
     print STDERR map "-- $_\n", @_ if $verbose;
@@ -43,7 +43,7 @@ sub vverb {
 # %dpkggrp contains a mapping of pkg=>grp
 # %dnampkg contains a mapping of nam=>@pkg (libxml=>[libxml-1.8.13])
 # %dfilepkg is a mapping of filename=>@pkg
-# 
+#
 ##############################################
 
 my (@dgrps, @dpkgs, %dpkggrp, %dnampkg);
@@ -64,7 +64,7 @@ sub load_database {
         opendir D, "$dbpath/$g" or
             die "epm: Error reading directory $dbpath/$g\n";
         my @dp = grep { !/^\./ &&
-                        -d "$dbpath/$g/$_" && 
+                        -d "$dbpath/$g/$_" &&
                         !-f "$dbpath/$g/$_/VIRTUAL" } readdir D;
         verb "read ".@dp." pkgs in group $g"; vverb @dp;
         @dpkggrp{@dp} = ($g) x @dp;
@@ -95,10 +95,10 @@ sub cmppkg {
     my (@p2) = ($p2 =~ /$pkgregex/o);
     die "epm: Couldn't parse name/version/suffix/rev from $p" unless @p2;
 
-    # 
+    #
     # Compare VERSION (element 1)
     #
-   
+
     # Split on .
     my (@v1) = split /\./, $p1[1];
     my (@v2) = split /\./, $p2[1];
@@ -111,7 +111,7 @@ sub cmppkg {
             if ($v2[$i] =~ /^\d+$/) {
                 if ($v1[$i] != $v2[$i]) {
                     # 2 <=> 3
-                    return $v1[$i] <=> $v2[$i];  
+                    return $v1[$i] <=> $v2[$i];
                 } else {
                     # 2 == 2
                     next;  # 2 == 2
@@ -133,7 +133,7 @@ sub cmppkg {
         # These elements are equal, just continue
     }
 
-    # 
+    #
     # Compare SPECIAL SUFFIX (element 2)
     #
     #
@@ -155,7 +155,7 @@ sub cmppkg {
 ##############################################
 #
 # QUERY MODE
-# 
+#
 ##############################################
 
 # Utility function to sum the size of a package on the filesystem
@@ -164,7 +164,7 @@ sub pkg_bytes {
     my ($p) = @_;
     my ($total) = 0;
     my (@files, $CONTENTS);
-    
+
     if ($p =~ /\//) {
 	$CONTENTS = "$dbpath/$p/CONTENTS";
     } else {
@@ -186,7 +186,7 @@ sub pkg_bytes {
 }
 
 # Utility function to do -qi
-sub query_info 
+sub query_info
 {
     my ($p) = @_;
     my (%vals);
@@ -199,7 +199,7 @@ Group       : \%-28s     License: \%s
 Size        : \%s
 Packager    : \%s
 URL         : \%s
-Description : 
+Description :
 \%s
 EOT
 
@@ -212,7 +212,7 @@ EOT
 	    $vals{$f} = '';
 	}
     }
-    
+
     # When was this last built/installed?
     $vals{'DATE'} = localtime((stat "$dbpath/$dpkggrp{$p}/$p/USE")[9]);
 
@@ -224,16 +224,16 @@ EOT
     } else {
 	$vals{'NAME'} = $vals{'VERSION'} = $vals{'RELEASE'} = '';
     }
-    
+
     # Calculate the SIZE for the files it uses on the filesystem
     $vals{'SIZE'} = pkg_bytes($p);
 
     # Extract the packager and description from the ebuild itself
     {
-	local $/ = undef; 
+	local $/ = undef;
 	open(F, "$dbpath/$dpkggrp{$p}/$p/$p.ebuild");
 	$_ = <F>;
-	$vals{'PACKAGER'} = /Header:.*:\d\d (\w+)/ ? $1 : ''; 
+	$vals{'PACKAGER'} = /Header:.*:\d\d (\w+)/ ? $1 : '';
 	$vals{'DESCRIPTION'} = /DESCRIPTION=["'](.*)['"]/ ? $1 : '';
 	$vals{'URL'} = /HOMEPAGE=["'](.*)['"]/ ? $1 : '(none)';
     }
@@ -245,7 +245,7 @@ EOT
 }
 
 # Utility function to do -ql
-sub query_list 
+sub query_list
 {
     my ($p) = @_;
     my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
@@ -258,11 +258,11 @@ sub query_list
     # Look up CONFIG_PROTECT if -c
     if ($opt{'c'}) {
 	# Read in CONFIG_PROTECT from /etc/make.{global,conf}
-	my (@CONFIG_PROTECT) = split ' ', 
+	my (@CONFIG_PROTECT) = split ' ',
 	    `. /etc/make.globals; . /etc/make.conf; echo \$CONFIG_PROTECT`;
 	die "CONFIG_PROTECT is empty" unless @CONFIG_PROTECT;
 	my ($confprotre) = join '|', @CONFIG_PROTECT;
-	@files = grep { 
+	@files = grep {
 	    (split ' ', $_, 2)[1] =~ /^($confprotre)/o } @files;
     }
 
@@ -270,7 +270,7 @@ sub query_list
     if ($opt{'d'}) {
 	# We don't have a variable like CONFIG_PROTECT to work
 	# with, so just fake it...  :-)
-	@files = grep { 
+	@files = grep {
 	    (split ' ', $_, 2)[1] =~ m/\/(?:doc|man|info)\//o } @files;
     }
 
@@ -284,7 +284,7 @@ sub query_list
 }
 
 # Utility function to do -qf
-sub query_file 
+sub query_file
 {
     my (@pkgs) = @_;
     # Search through CONTENTS for elements in ARGV.  Building an
@@ -295,7 +295,7 @@ sub query_file
 	# Trim trailing slashes from directories
 	$a =~ s#/*$##;
 	# If it's a relative pathname, then figure out the full pathname
-	if ($a !~ m#^/# || $a =~ m#/\.\./#) { 
+	if ($a !~ m#^/# || $a =~ m#/\.\./#) {
 	    # Make the pathname absolute
 	    if ($a =~ s#/([^/]+)$##) {
 		my $name = $1;
@@ -338,7 +338,7 @@ sub query_file
 }
 
 # Utility function to do -V
-sub verify 
+sub verify
 {
     my ($p) = @_;
     my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
@@ -386,7 +386,7 @@ sub verify
     }
 }
 
-sub query 
+sub query
 {
     verb "query mode";
     verb "actually Verify mode" if $opt{'V'};
@@ -396,7 +396,7 @@ sub query
     my (@pkgs);  # list of packages being queried
 
     # Package-based query (how does this work with emerge?)
-    if ($opt{'p'}) { 
+    if ($opt{'p'}) {
         die "epm: Sorry, package-based query not yet supported\n";
     }
 
@@ -406,7 +406,7 @@ sub query
     $opt{'c'}    and $opt{'l'} = 1;
 
     # File-based query
-    if ($opt{'f'}) { 
+    if ($opt{'f'}) {
 	@pkgs = query_file(@pkgs);
 	@ARGV = (); # Clear out ARGV so queries below don't get confused
     }
@@ -433,7 +433,7 @@ sub query
     if ($opt{'a'}) {
 	die "epm: extra arguments given for query of all packages\n" if @ARGV;
 	@pkgs = @dpkgs;
-    } 
+    }
     elsif (@pkgs) {
 	# must have been populated by, for instance, -qf
     }
@@ -488,9 +488,9 @@ sub query
 ##############################################
 #
 # ERASE MODE
-# 
+#
 ##############################################
-sub erase 
+sub erase
 {
     my (@cmd);
     verb "erase mode";
@@ -593,7 +593,7 @@ Getopt::Long::Configure ("bundling");
 # each optionstring so that the hash keys are created using the short
 # versions.  For example, use 'q|query', not 'query|q'.
 my $result = GetOptions(
-    \%opt, 
+    \%opt,
     'help',		# help message
     'v+',		# verbose, more v's for more verbosity
 
@@ -642,8 +642,8 @@ if ($opt{'help'}) { print $syntax; exit 0 }
 #  other
 if ((defined $opt{'q'} || 0) +
     (defined $opt{'V'} || 0) +
-    (defined $opt{'U'} || 0) + 
-    (defined $opt{'e'} || 0) + 
+    (defined $opt{'U'} || 0) +
+    (defined $opt{'e'} || 0) +
     (defined $opt{'b'} || 0) != 1) {
 	die "One mode required, and only one mode allowed\n";
 }
@@ -656,6 +656,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.11  2005/05/14 20:54:19  mr_bones_
+# Trim trailing whitespace
+#
 # Revision 1.10  2005/05/13 20:47:44  agriffis
 # epm-0.8.8
 #
