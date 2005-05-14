@@ -194,8 +194,10 @@ sub pkg_bytes($)
 sub query_info($)
 {
     my ($p) = @_;
-    my (%vals);
-    my ($fmt) = <<EOT;
+    my ($key, $value);
+    my %vals;
+    my $ldbpath = "$dbpath/$dpkggrp{$p}/$p";
+    my $fmt = <<EOT;
 Name        : \%s
 Version     : \%s
 Release     : \%-28s        Slot: \%s
@@ -204,47 +206,53 @@ Group       : \%-28s     License: \%s
 Size        : \%s
 Packager    : \%s
 URL         : \%s
-Description :
-\%s
+Summary     : \%s
 EOT
-
     # Extract some information from files stored in the Portage pkgdb
-    for my $f (qw(CATEGORY CFLAGS CHOST CXXFLAGS LICENSE SLOT)) {
-	if (open(F, "$dbpath/$dpkggrp{$p}/$p/$f")) {
-	    $vals{$f} = <F>;
-	    chomp($vals{$f});
-	} else {
-	    $vals{$f} = '';
+    open(F, "bzcat $ldbpath/environment.bz2|")
+	or die "epm: Can't open $ldbpath/environment.bz2: $!\n";
+    while (<F>) {
+	next unless (/^(CATEGORY|HOSTNAME|DESCRIPTION|HOMEPAGE|LICENSE|PN|PR|PV|SLOT)=(.*)/);
+	($key, $value) = ($1, $2);
+	if ($key eq 'PN') {
+	    $key = 'NAME';
+	} elsif ($key eq 'PR') {
+	    $key = 'RELEASE';
+	    $value =~ s/^r0?//o;
+	} elsif ($key eq 'PV') {
+	    $key = 'VERSION';
+	} elsif ($key eq 'HOMEPAGE') {
+	    $key = 'URL';
+	    $value = '(none)' if ($value =~ /^$/o);
 	}
+	# Clean up the double and single quotes
+	$value =~ s/^'(.*)'$/$1/o;
+	$value =~ s/'\\''/'/go;
+	$value =~ s/\\"/"/go;
+
+	$vals{$key} = $value;
     }
+    close(F);
 
     # When was this last built/installed?
-    $vals{'DATE'} = localtime((stat "$dbpath/$dpkggrp{$p}/$p/USE")[9]);
-
-    # Extract NAME, VERSION, RELEASE from $p
-    if ($p =~ /$pkgregex/o) {
-	$vals{'NAME'} = $1;
-	$vals{'VERSION'} = "$2$3";
-	($vals{'RELEASE'} = $4) =~ s/^-r//;
-    } else {
-	$vals{'NAME'} = $vals{'VERSION'} = $vals{'RELEASE'} = '';
-    }
+    $vals{'DATE'} = localtime((stat "$ldbpath/USE")[9]);
 
     # Calculate the SIZE for the files it uses on the filesystem
     $vals{'SIZE'} = pkg_bytes($p);
 
     # Extract the packager and description from the ebuild itself
-    {
-	local $/ = undef;
-	open(F, "$dbpath/$dpkggrp{$p}/$p/$p.ebuild");
-	$_ = <F>;
-	$vals{'PACKAGER'} = /Header:.*:\d\d (\w+)/ ? $1 : '';
-	$vals{'DESCRIPTION'} = /DESCRIPTION=["'](.*)['"]/ ? $1 : '';
-	$vals{'URL'} = /HOMEPAGE=["'](.*)['"]/ ? $1 : '(none)';
+    open(F, "$ldbpath/$p.ebuild")
+	or die "epm: Can't open $ldbpath/$p.ebuild: $!\n";
+    while (<F>) {
+	if (/Header:.*:\d\d (\w+)/o) {
+	    $vals{'PACKAGER'} = $1;
+	    last;
+	}
     }
+    close(F);
 
     printf $fmt, $vals{'NAME'}, $vals{'VERSION'}, $vals{'RELEASE'},
-	$vals{'SLOT'}, $vals{'DATE'}, $vals{'CHOST'}, $dpkggrp{$p},
+	$vals{'SLOT'}, $vals{'DATE'}, $vals{'HOSTNAME'}, $dpkggrp{$p},
 	$vals{'LICENSE'}, $vals{'SIZE'}, $vals{'PACKAGER'}, $vals{'URL'},
 	$vals{'DESCRIPTION'};
 }
@@ -661,6 +669,22 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.16  2005/05/14 22:21:46  mr_bones_
+# Make output more similar to rpm by changing "Description" to "Summary"
+# in output.  Maybe at some point the extended description from metadata.xml
+# will be stored in portage and can be extracted then by epm for Description.
+# Also changed "Build Host" from CHOST to HOSTNAME.
+#
+# Modified to read environment.bz2 instead of the ebuild for some values.
+# This is more reliable because environment.bz2 is the state after ebuild
+# and eclass processing.  Epm was confused by ebuilds that have the HOMEPAGE
+# and DESCRIPTION in an eclass. (eg. xmms-mpg123)
+#
+# Fixed up display of values that contain double and single quotes
+# (eg. libmad)
+#
+# Added error checking for open()
+#
 # Revision 1.15  2005/05/14 21:55:25  mr_bones_
 # Pass long option (--unmerge) to emerge instead of short option (-C)
 # for better readability.
