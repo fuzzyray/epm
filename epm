@@ -91,9 +91,9 @@ sub cmppkg {
     # Apply the regex
     # [0] = name, [1] = version, [2] = special suffix, [3] = revision
     my (@p1) = ($p1 =~ /$pkgregex/o);
-    die "epm: Couldn't parse name/version/suffix/rev from $p" unless @p1;
+    die "epm: Couldn't parse name/version/suffix/rev from $p1" unless @p1;
     my (@p2) = ($p2 =~ /$pkgregex/o);
-    die "epm: Couldn't parse name/version/suffix/rev from $p" unless @p2;
+    die "epm: Couldn't parse name/version/suffix/rev from $p2" unless @p2;
 
     #
     # Compare VERSION (element 1)
@@ -656,6 +656,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.12  2005/05/14 21:30:44  mr_bones_
+# Use correct variable in error message ($p -> $p1/$p2)
+#
 # Revision 1.11  2005/05/14 20:54:19  mr_bones_
 # Trim trailing whitespace
 #
