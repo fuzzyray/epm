@@ -321,18 +321,16 @@ sub query_file(@)
 	# TODO: stat the file here so that we can determine later
 	#       what package the file currently belongs to
 	for my $p (@dpkgs) {
-	    my ($CONTENTS, @files);
-	    $CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+	    my $CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+
 	    unless (-s $CONTENTS) {
 		verb "skipping empty/nonexistent $CONTENTS";
 		next;
 	    }
 	    open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n";
-	    @files = <F>;
-	    close F;
-	    chop(@files);
 	    # Check this list of files for the current query
-	    for my $f (@files) {
+	    while (my $f = <F>) {
+		chomp($f);
 		$f =~ s/^dir // or
 		$f =~ s/^obj (\S.*?) \w+ \d+$/$1/ or
 		$f =~ s/^sym (\S.*?) -> .*$/$1/ or next;
@@ -340,6 +338,7 @@ sub query_file(@)
 		$found = 1;
 		push @pkgs, $p;
 	    }
+	    close F;
 	}
 	unless ($found) {
 	    if (-e $a) { print "file $origa is not owned by any package\n"; }
@@ -669,6 +668,10 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.17  2005/05/14 22:24:12  mr_bones_
+# no reason to read CONTENTS into memory in query_file().  Modified to read
+# line at a time.
+#
 # Revision 1.16  2005/05/14 22:21:46  mr_bones_
 # Make output more similar to rpm by changing "Description" to "Summary"
 # in output.  Maybe at some point the extended description from metadata.xml
