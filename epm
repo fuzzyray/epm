@@ -178,8 +178,7 @@ sub pkg_bytes($)
     open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n"
 	or die "epm: Can't open $CONTENTS: $!\n";
     for my $f (grep /^obj/, <F>) {
-	chomp($f);
-	$f =~ s/^obj (\S.*?) \w+ \d+$/$1/;
+	$f =~ s/^obj (.+) \w+ \d+\s*$/$1/;
 	my ($size) = (stat($f))[7];
 	next unless $size;
 	verb "Adding $f ($size bytes)";
@@ -291,7 +290,7 @@ sub query_list($)
 	print @files;
     } else {
     	print grep {
-	    s/^obj (\S.*?) \w+ \d+$/$1/ || s/^sym (\S.*?) -> .*$/$1/ } @files;
+	    s/^obj (.+) \w+ \d+\s*$/$1/ || s/^sym (\S.*?) -> .*$/$1/ } @files;
     }
 }
 
@@ -331,7 +330,7 @@ sub query_file(@)
 	    while (my $f = <F>) {
 		chomp($f);
 		$f =~ s/^dir // or
-		$f =~ s/^obj (\S.*?) \w+ \d+$/$1/ or
+		$f =~ s/^obj (.+) \w+ \d+\s*$/$1/ or
 		$f =~ s/^sym (\S.*?) -> .*$/$1/ or next;
 		next unless $f eq $a;
 		$found = 1;
@@ -364,7 +363,7 @@ sub verify($)
     # XXX should label config files with 'c'
     while ($f = <F>) {
 	chomp($f);
-	if ($f =~ /^obj (.+) (\S+) (\d+)$/o) {
+	if ($f =~ /^obj (.+) (\w+) (\d+)\s*$/o) {
 	    my ($Cname, $Cmd5, $Cmtime) = ($1, $2, $3);
 	    my ($md5, $mtime);
 	    vverb "$Cname: $Cmd5 $Cmtime";
@@ -700,6 +699,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.20  2005/05/16 03:15:26  mr_bones_
+# Make all the regexs that match the obj lines from CONTENTS be the same.
+#
 # Revision 1.19  2005/05/14 23:50:33  mr_bones_
 # remove "use epm".  guessing that was an idea that never materialized
 #
