@@ -221,7 +221,7 @@ EOT
 	    $key = 'VERSION';
 	} elsif ($key eq 'HOMEPAGE') {
 	    $key = 'URL';
-	    $value = '(none)' if ($value =~ /^$/o);
+	    $value = '(none)' unless $value;
 	}
 	# Clean up the double and single quotes
 	$value =~ s/^'(.*)'$/$1/o;
@@ -303,8 +303,10 @@ sub query_file(@)
     for my $a (@ARGV) {
 	my $found = 0;
 	my $origa = $a;
+
 	# Trim trailing slashes from directories
 	$a =~ s#/*$##;
+
 	# If it's a relative pathname, then figure out the full pathname
 	if ($a !~ m#^/# || $a =~ m#/\.\./#) {
 	    # Make the pathname absolute
@@ -699,6 +701,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.21  2005/05/18 05:30:14  mr_bones_
+# fix silly check for empty HOMEPAGE
+#
 # Revision 1.20  2005/05/16 03:15:26  mr_bones_
 # Make all the regexs that match the obj lines from CONTENTS be the same.
 #
