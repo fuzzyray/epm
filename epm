@@ -690,7 +690,7 @@ if ((defined $opt{'q'} || 0) +
     (defined $opt{'U'} || 0) +
     (defined $opt{'e'} || 0) +
     (defined $opt{'b'} || 0) != 1) {
-	die "One mode required, and only one mode allowed\n";
+	die "$syntax\nOne mode required, and only one mode allowed\n";
 }
 
 # Query mode
@@ -701,6 +701,11 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.22  2005/06/22 05:28:24  mr_bones_
+# Print out usage if user didn't get the mode specified correctly.
+# Suggested by Tristan Cebulla in
+# http://bugs.gentoo.org/show_bug.cgi?id=96726
+#
 # Revision 1.21  2005/05/18 05:30:14  mr_bones_
 # fix silly check for empty HOMEPAGE
 #
