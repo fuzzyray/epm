@@ -556,6 +556,7 @@ sub erase()
     # --allmatches by default.
     @cmd = qw(emerge --unmerge);
     push @cmd, '--pretend' if $opt{'test'};
+    push @cmd, '--quiet' unless $opt{'verbose'};
     push @cmd, @ARGV;
     system(@cmd);
     die "epm: Fatal error running emerge\n" if $?;
@@ -701,6 +702,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.23  2005/07/05 20:01:36  mr_bones_
+# pass --quiet to emerge when performing -e (erase) to be more like rpm
+#
 # Revision 1.22  2005/06/22 05:28:24  mr_bones_
 # Print out usage if user didn't get the mode specified correctly.
 # Suggested by Tristan Cebulla in
