@@ -8,7 +8,8 @@ use Cwd qw(abs_path);
 my $verbose = 0;
 my $dbpath = '/var/db/pkg';
 my $pkgregex =
-    '^(.+?)'.					# name
+    '^.+?\/'.					# group (ignored)
+    '(.+?)'.					# name
     '-(\d+(?:\.\d+)*\w*)'.			# version, eg 1.23.4a
     '((?:(?:_alpha|_beta|_pre|_rc)\d*)?)'.	# special suffix
     '((?:-r\d+)?)$';				# revision, eg r12
@@ -41,13 +42,12 @@ sub vverb
 #
 # @dgrps contains a list of all the groups at dbpath
 # @dpkgs contains a list of all the packages at dbpath/@dgrps
-# %dpkggrp contains a mapping of pkg=>grp
 # %dnampkg contains a mapping of nam=>@pkg (libxml=>[libxml-1.8.13])
 # %dfilepkg is a mapping of filename=>@pkg
 #
 ##############################################
 
-my (@dgrps, @dpkgs, %dpkggrp, %dnampkg);
+my (@dgrps, @dpkgs, %dnampkg);
 
 sub load_database()
 {
@@ -68,16 +68,14 @@ sub load_database()
         my @dp = grep { !/^\./ &&
                         -d "$dbpath/$g/$_" &&
                         !-f "$dbpath/$g/$_/VIRTUAL" } readdir D;
+        @dp = map $g."/".$_, @dp;
         verb "read ".@dp." pkgs in group $g"; vverb @dp;
-        @dpkggrp{@dp} = ($g) x @dp;
         push @dpkgs, @dp;
     }
-    vverb "package to group associations:";
-    vverb map "  $_ => $dpkggrp{$_}", keys %dpkggrp;
 
     # Create association of names => pkgs
     for my $p (@dpkgs) {
-        $p =~ /$pkgregex/o || $dpkggrp{$p} eq 'virtual' ||
+        $p =~ /$pkgregex/o || $p =~ /^virtual/ ||
             die "epm: Could't parse name/version/suffix/rev from $p";
         # $2, $3, $4 aren't used right now, but they're in the regex
         # for the sake of completeness.
@@ -169,11 +167,7 @@ sub pkg_bytes($)
     my $total = 0;
     my $CONTENTS;
 
-    if ($p =~ /\//) {
-	$CONTENTS = "$dbpath/$p/CONTENTS";
-    } else {
-	$CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
-    }
+    $CONTENTS = "$dbpath/$p/CONTENTS";
 
     open F, "<$CONTENTS" or die "epm: Can't open $CONTENTS\n"
 	or die "epm: Can't open $CONTENTS: $!\n";
@@ -192,9 +186,10 @@ sub pkg_bytes($)
 sub query_info($)
 {
     my ($p) = @_;
+    my ($group, $ename) = $p =~ /^(.+?)\/(.+)$/;
     my ($key, $value);
     my %vals;
-    my $ldbpath = "$dbpath/$dpkggrp{$p}/$p";
+    my $ldbpath = "$dbpath/$p";
     my $fmt = <<EOT;
 Name        : \%s
 Version     : \%s
@@ -239,7 +234,7 @@ EOT
     $vals{'SIZE'} = pkg_bytes($p);
 
     # Extract the packager and description from the ebuild itself
-    open(F, "$ldbpath/$p.ebuild")
+    open(F, "$ldbpath/$ename.ebuild")
 	or die "epm: Can't open $ldbpath/$p.ebuild: $!\n";
     while (<F>) {
 	if (/Header:.*:\d\d (\w+)/o) {
@@ -250,7 +245,7 @@ EOT
     close(F);
 
     printf $fmt, $vals{'NAME'}, $vals{'VERSION'}, $vals{'RELEASE'},
-	$vals{'SLOT'}, $vals{'DATE'}, $vals{'HOSTNAME'}, $dpkggrp{$p},
+	$vals{'SLOT'}, $vals{'DATE'}, $vals{'HOSTNAME'}, $group,
 	$vals{'LICENSE'}, $vals{'SIZE'}, $vals{'PACKAGER'}, $vals{'URL'},
 	$vals{'DESCRIPTION'};
 }
@@ -259,7 +254,7 @@ EOT
 sub query_list($)
 {
     my ($p) = @_;
-    my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+    my ($CONTENTS) = "$dbpath/$p/CONTENTS";
     my (@files);
 
     open F, "<$CONTENTS" || die "epm: Can't open $CONTENTS\n";
@@ -321,7 +316,7 @@ sub query_file(@)
 	# TODO: stat the file here so that we can determine later
 	#       what package the file currently belongs to
 	for my $p (@dpkgs) {
-	    my $CONTENTS = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+	    my $CONTENTS = "$dbpath/$p/CONTENTS";
 
 	    unless (-s $CONTENTS) {
 		verb "skipping empty/nonexistent $CONTENTS";
@@ -353,7 +348,7 @@ sub query_file(@)
 sub verify($)
 {
     my ($p) = @_;
-    my ($CONTENTS) = "$dbpath/$dpkggrp{$p}/$p/CONTENTS";
+    my ($CONTENTS) = "$dbpath/$p/CONTENTS";
     verb "verifying $p";
 
     # CONTENTS consists of lines such as
@@ -462,7 +457,7 @@ sub query()
     elsif ($opt{'g'}) {
 	for my $a (@ARGV) {
             verb "checking for packages in group $a";
-            my @l = grep $dpkggrp{$_} eq $a, @dpkgs;
+            my @l = grep /^$a\//, @dpkgs;
             vverb "packages in group $a:";
             vverb "  ", join "\n  ", @l;
             unless (@l) {
@@ -524,8 +519,12 @@ sub query()
 	    # If doing -qS, then include the size in kb, like ls -s
 	    printf "%6d ", int(pkg_bytes($p)/1000) if $opt{'S'};
 	    # If doing -qG, then include the group name
-	    print "$dpkggrp{$p}/" if $opt{'G'};
-	    print "$p\n";
+	    if ($opt{'G'}) {
+	        print "$p\n";
+	    } else {
+	        ($nogrp) = $p =~ /^.+?\/(.+)$/;
+	        print "$nogrp\n";
+	    }
 	}
     }
 }
@@ -570,7 +569,7 @@ sub erase()
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.8
+EPM version 0.8.9
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -702,6 +701,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.24  2005/08/15 20:37:14  kanaka
+# Fix situation where package group is different, but name and version are the same (i.e. crossdev)
+#
 # Revision 1.23  2005/07/05 20:01:36  mr_bones_
 # pass --quiet to emerge when performing -e (erase) to be more like rpm
 #
