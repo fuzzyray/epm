@@ -284,8 +284,8 @@ sub query_list($)
     if ($opt{'dump'}) {
 	print @files;
     } else {
-    	print grep {
-	    s/^obj (.+) \w+ \d+\s*$/$1/ || s/^sym (\S.*?) -> .*$/$1/ } @files;
+        print grep {
+            s/^obj (.+) \w+ \d+\s*?$/$1/ || s/^sym (\S.*?) -> .*$/$1/ } @files;
     }
 }
 
@@ -701,6 +701,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.25  2005/08/16 20:39:16  kanaka
+# Fix broken regex during file list query
+#
 # Revision 1.24  2005/08/15 20:37:14  kanaka
 # Fix situation where package group is different, but name and version are the same (i.e. crossdev)
 #
