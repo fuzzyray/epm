@@ -594,7 +594,7 @@ Usage:
        *--whatrequires <cap> - query packages which require <cap> capability
         -g <group>+ --group <group>+ - query packages in group <group>
       Information selection options:
-       *-i, --info         - display package information
+        -i, --info         - display package information
         -l                 - display package file list
         -G, --showgroup    - display group name in output (not in rpm)
         -S, --size         - display package size in output (not in rpm)
@@ -701,6 +701,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.26  2005/08/25 22:03:59  mr_bones_
+# -i is implemented so remove the * from the usage message. (reported by agriffis)
+#
 # Revision 1.25  2005/08/16 20:39:16  kanaka
 # Fix broken regex during file list query
 #
