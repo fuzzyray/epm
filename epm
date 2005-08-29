@@ -569,7 +569,7 @@ sub erase()
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.8.9
+EPM version 0.9.0
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -701,6 +701,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.27  2005/08/29 13:32:35  kanaka
+# Update version to 0.9.0
+#
 # Revision 1.26  2005/08/25 22:03:59  mr_bones_
 # -i is implemented so remove the * from the usage message. (reported by agriffis)
 #
