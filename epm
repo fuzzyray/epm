@@ -231,7 +231,7 @@ EOT
     $vals{'DATE'} = localtime((stat "$ldbpath/USE")[9]);
 
     # Calculate the SIZE for the files it uses on the filesystem
-    $vals{'SIZE'} = pkg_bytes($p);
+    $vals{'SIZE'} = $opt{'nosize'} ? 'n/a' : pkg_bytes($p);
 
     # Extract the packager and description from the ebuild itself
     open(F, "$ldbpath/$ename.ebuild")
@@ -595,6 +595,7 @@ Usage:
         -g <group>+ --group <group>+ - query packages in group <group>
       Information selection options:
         -i, --info         - display package information
+           --nosize        - don't display size in info output (not in rpm)
         -l                 - display package file list
         -G, --showgroup    - display group name in output (not in rpm)
         -S, --size         - display package size in output (not in rpm)
@@ -606,8 +607,8 @@ Usage:
        *-R, --requires     - list package dependencies
        *--scripts          - print the various [un]install scripts
 
-    --erase <package>
-    -e <package>           - erase (uninstall) package
+   --erase <package>
+   -e <package>            - erase (uninstall) package
       --allmatches         - remove all packages which match <package>
                              (unlike rpm, this is the default)
       --dbpath <dir>       - use <dir> as the directory for the database
@@ -622,7 +623,7 @@ Usage:
       --root <dir>         - use <dir> as the top level directory
       --test               - don't uninstall, but tell what would happen
 
-    -V, -y, --verify       - verify a package installation using the same
+   -V, -y, --verify        - verify a package installation using the same
                              package specification options as -q
       --dbpath <dir>       - use <dir> as the directory for the database
      *--root <dir>         - use <dir> as the top level directory
@@ -654,6 +655,7 @@ my $result = GetOptions(
 	'whatrequires',	# query packages which require capability
 	# Information selection options:
 	'i|info',	# display package information
+	'nosize',	# don't display size in info output
 	'l',		# display package file list
 	'd',		# list documentation files (implies -l)
 	'c',		# list configuration files (implies -l)
@@ -701,6 +703,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.28  2006/03/15 21:43:23  agriffis
+# Add --nosize option
+#
 # Revision 1.27  2005/08/29 13:32:35  kanaka
 # Update version to 0.9.0
 #
