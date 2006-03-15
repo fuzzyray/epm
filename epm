@@ -231,7 +231,7 @@ EOT
     $vals{'DATE'} = localtime((stat "$ldbpath/USE")[9]);
 
     # Calculate the SIZE for the files it uses on the filesystem
-    $vals{'SIZE'} = $opt{'nosize'} ? 'n/a' : pkg_bytes($p);
+    $vals{'SIZE'} = $opt{'nosize'} ? '' : pkg_bytes($p);
 
     # Extract the packager and description from the ebuild itself
     open(F, "$ldbpath/$ename.ebuild")
@@ -703,6 +703,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.29  2006/03/15 21:49:48  agriffis
+# Leave Size blank instead of n/a when --nosize given
+#
 # Revision 1.28  2006/03/15 21:43:23  agriffis
 # Add --nosize option
 #
