@@ -285,7 +285,10 @@ sub query_list($)
 	print @files;
     } else {
         print grep {
-            s/^obj (.+) \w+ \d+\s*?$/$1/ || s/^sym (\S.*?) -> .*$/$1/ } @files;
+               s/^obj (.+) \w+ \d+\s*?$/$1/
+	    || s/^sym (\S.*?) -> .*$/$1/
+	    || s/^dir (\S.*?)$/$1/
+	    } @files;
     }
 }
 
@@ -703,6 +706,11 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.30  2006/04/04 21:07:07  mr_bones_
+# display directories as well as files and symlinks when doing query list (-ql)
+# This matches what rpm does.  Reported by Steven Elling via Gentoo bugzilla:
+# http://bugs.gentoo.org/show_bug.cgi?id=128186
+#
 # Revision 1.29  2006/03/15 21:49:48  agriffis
 # Leave Size blank instead of n/a when --nosize given
 #
