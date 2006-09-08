@@ -5,6 +5,7 @@ use Getopt::Long;
 use Cwd qw(abs_path);
 
 # Global vars
+(my $version = '$Revision$') =~ s/.*?(\d.*\d).*/EPM version $1/;
 my $verbose = 0;
 my $dbpath = '/var/db/pkg';
 my $pkgregex =
@@ -506,6 +507,23 @@ sub query()
 	}
     }
 
+    # Sort package order, by reverse mtime
+    if ($opt{'last'}) {
+	my %mtimes;
+	@pkgs = sort {
+	    # When was this last built/installed?
+	    unless (exists $mtimes{$a}) {
+		$mtimes{$a} = (stat "$dbpath/$a")[9];
+		vverb "$a = $mtimes{$a}";
+	    }
+	    unless (exists $mtimes{$b}) {
+		$mtimes{$b} = (stat "$dbpath/$b")[9];
+		vverb "$b = $mtimes{$b}";
+	    }
+	    $mtimes{$b} <=> $mtimes{$a} or $a cmp $b;
+	} @pkgs;
+    }
+
     for my $p (@pkgs) {
 	# Verify package
 	if ($opt{'V'}) { verify($p); next; }
@@ -572,7 +590,7 @@ sub erase()
 
 # Syntax string for errors
 my $syntax = <<EOT;
-EPM version 0.9.0
+$version
 Copyright (C) 2001-2003 - Aron Griffis
 This program may be freely redistributed under the terms of the GNU GPL v2
 '*' leading an option indicates not-yet-implemented
@@ -588,6 +606,8 @@ Usage:
    -q, --query             - query mode
       --dbpath <dir>       - use <dir> as the directory for the database
       --root <dir>         - use <dir> as the top level directory
+      --last               - list package(s) by install time, most
+                             recent first
       Package specification options:
         -a, --all          - query all packages
         -f <file>+         - query package owning <file>
@@ -644,11 +664,13 @@ Getopt::Long::Configure ("bundling");
 my $result = GetOptions(
     \%opt,
     'help',		# help message
+    'version',		# version message
     'v+',		# verbose, more v's for more verbosity
 
     'q|query', 		# query mode
 	'dbpath=s',	# use <dir> as the directory for the database
 	'root=s',	# use <dir> as the top level directory
+	'last',		# order package listing by most recent install first
 	# Package specification options:
 	'a|all',	# query all packages
 	'f',		# query package owning file(s)
@@ -682,6 +704,7 @@ my $result = GetOptions(
 
 # Handle help message
 if ($opt{'help'}) { print $syntax; exit 0 }
+if ($opt{'version'}) { print "$version\n"; exit 0 }
 
 # Determine which mode we're running in; make sure it's valid.
 #  (q)uery
@@ -706,6 +729,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.31  2006/09/08 19:35:22  agriffis
+# Switch to cvs-based versioning.  Add --version option.  Add --last option, based on patch submitted by Tim Stotts #138679
+#
 # Revision 1.30  2006/04/04 21:07:07  mr_bones_
 # display directories as well as files and symlinks when doing query list (-ql)
 # This matches what rpm does.  Reported by Steven Elling via Gentoo bugzilla:
