@@ -328,9 +328,8 @@ sub query_file(@)
 	    # Check this list of files for the current query
 	    while (my $f = <F>) {
 		chomp($f);
-		$f =~ s/^dir // or
-		$f =~ s/^obj (.+) \w+ \d+\s*$/$1/ or
-		$f =~ s/^sym (\S.*?) -> .*$/$1/ or next;
+		$f =~ s{^obj (.+?)(?:/\.keep[^\s/]*)? \w+ \d+\s*?}{$1} or
+		$f =~ s{^sym (\S.*?) -> .*$}{$1} or next;
 		next unless $f eq $a;
 		$found = 1;
 		push @pkgs, $p;
@@ -727,6 +726,9 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
 # $Log$
+# Revision 1.33  2006/09/13 15:09:19  agriffis
+# Treat dirs the same in -qf as in -ql
+#
 # Revision 1.32  2006/09/13 15:04:49  agriffis
 # Revert 1.30.  Listing all intermediate dirs up to a file isn't useful, and doesn't match rpm.  Only list dirs that contain .keep files
 #
