@@ -1,11 +1,10 @@
 #!/usr/bin/perl -wI.
-# $Id$
 
 use Getopt::Long;
 use Cwd qw(abs_path);
 
 # Global vars
-(my $version = '$Revision$') =~ s/.*?(\d.*\d).*/EPM version $1/;
+my $version = "EPM version 1.4.0";
 my $verbose = 0;
 my $dbpath = '/var/db/pkg';
 my $pkgregex =
@@ -716,7 +715,11 @@ if ($opt{'e'}) { erase(); exit $exitcode }
 # Other modes not implemented yet
 die "epm: Sorry, this mode isn't implemented yet.  Check back later!  :-)\n";
 
-# $Log$
+# Revision 1.4.0 2013-01-23 p2w
+# Fix -qi (bug 310475).
+# New maintainer.
+# Revert the change of v1.33, fix others problems with -qf (Gentoo bugs 93843 and 153921)
+#
 # Revision 1.33  2006/09/13 15:09:19  agriffis
 # Treat dirs the same in -qf as in -ql
 #
@@ -971,10 +974,11 @@ To show all vim related packages on the system:
 
 =head1 NOTES
 
-This tool was written by Aron Griffis <agriffis@gentoo.org>.  It will
-probably blow up your computer, but it works well enough for me.  If
-you report bugs at http://bugs.gentoo.org/, assigned to me, I might
-fix them eventually.  Your chances skyrocket if you include a good
-patch, like Wayne Davison always does.
+This tool was written by Aron Griffis.  Currently, Peter Weilbacher
+<peter@weilbacher.org> tries to maintain it.
+It will probably blow up your computer, but it works well enough for
+me.  If you report bugs at http://bugs.gentoo.org/, assigned to Peter,
+they might get fixed.  Your chances increase a lot if you include a
+good patch.
 
 =end
