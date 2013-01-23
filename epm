@@ -318,8 +318,9 @@ sub query_file(@)
 	    # Check this list of files for the current query
 	    while (my $f = <F>) {
 		chomp($f);
-		$f =~ s{^obj (.+?)(?:/\.keep[^\s/]*)? \w+ \d+\s*?}{$1} or
-		$f =~ s{^sym (\S.*?) -> .*$}{$1} or next;
+		$f =~ s/^dir // or
+		$f =~ s/^obj (.+) \w+ \d+\s*$/$1/ or
+		$f =~ s/^sym (\S.*?) -> .*$/$1/ or next;
 		next unless $f eq $a;
 		$found = 1;
 		push @pkgs, $p;
