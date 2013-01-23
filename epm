@@ -302,20 +302,9 @@ sub query_file(@)
 	my $found = 0;
 	my $origa = $a;
 
-	# Trim trailing slashes from directories
-	$a =~ s#/*$##;
+	# Try to get the absolute path before searching
+	$a = abs_path($a) || $a;
 
-	# If it's a relative pathname, then figure out the full pathname
-	if ($a !~ m#^/# || $a =~ m#/\.\./#) {
-	    # Make the pathname absolute
-	    if ($a =~ s#/([^/]+)$##) {
-		my $name = $1;
-		$a = abs_path($a) . '/' . $name;
-	    }
-	    else {
-		$a = abs_path('.') . '/' . $a;
-	    }
-	}
 	# TODO: stat the file here so that we can determine later
 	#       what package the file currently belongs to
 	for my $p (@dpkgs) {
