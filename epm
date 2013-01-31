@@ -4,7 +4,7 @@ use Getopt::Long;
 use Cwd qw(abs_path);
 
 # Global vars
-my $version = "EPM version 1.4.0";
+my $version = "EPM version 1.40";
 my $verbose = 0;
 my $dbpath = '/var/db/pkg';
 my $pkgregex =
