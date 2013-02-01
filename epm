@@ -928,6 +928,8 @@ This isn't really a mode, but it's the only thing you can do without
 otherwise specifying a mode.  Run "epm --help" to see the
 comprehensive list of options available for each mode.
 
+=back
+
 =head1 EXAMPLES
 
 To find out if vim is installed:
@@ -970,8 +972,6 @@ To show all vim related packages on the system:
   vim-6.2_pre2
   gvim-6.2_pre2
 
-=back
-
 =head1 NOTES
 
 This tool was written by Aron Griffis.  Currently, Peter Weilbacher
@@ -981,4 +981,4 @@ me.  If you report bugs at http://bugs.gentoo.org/, assigned to Peter,
 they might get fixed.  Your chances increase a lot if you include a
 good patch.
 
-=end
+=cut
